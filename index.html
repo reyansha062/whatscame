@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Space Chat Room</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a0033;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        #chat-container {
+            width: 90%;
+            max-width: 500px;
+            height: 80vh;
+            background: rgba(13, 0, 26, 0.9);
+            border: 3px solid #00ffff;
+            box-shadow: 0 0 25px rgba(0, 255, 255, 0.3);
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #chat-header {
+            background: rgba(26, 0, 51, 0.9);
+            padding: 15px;
+            text-align: center;
+            border-bottom: 2px solid #ff007f;
+        }
+        #chat-header h2 {
+            margin: 0;
+            color: #00ffff;
+            text-shadow: 0 0 10px #00ffff;
+            letter-spacing: 2px;
+            font-size: 22px;
+        }
+        #username-box {
+            display: flex;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid #440066;
+            gap: 10px;
+        }
+        #username-input {
+            flex: 1;
+            background: #240046;
+            border: 1px solid #9d4edd;
+            color: white;
+            padding: 8px;
+            border-radius: 5px;
+        }
+        #messages-area {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .msg-wrapper {
+            display: flex;
+            flex-direction: column;
+            max-width: 75%;
+        }
+        .msg-wrapper.self {
+            align-self: flex-end;
+        }
+        .msg-wrapper.others {
+            align-self: flex-start;
+        }
+        .meta-text {
+            font-size: 11px;
+            color: #9d4edd;
+            margin-bottom: 3px;
+            padding: 0 5px;
+        }
+        .msg-bubble {
+            padding: 10px 14px;
+            border-radius: 15px;
+            font-size: 15px;
+            word-break: break-word;
+            line-height: 1.4;
+        }
+        .self .msg-bubble {
+            background: #ff007f;
+            color: white;
+            border-bottom-right-radius: 2px;
+            box-shadow: 0 0 10px rgba(255, 0, 127, 0.4);
+        }
+        .others .msg-bubble {
+            background: #00ffff;
+            color: #1a0033;
+            border-bottom-left-radius: 2px;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.4);
+            font-weight: 500;
+        }
+        #input-area {
+            display: flex;
+            padding: 15px;
+            background: rgba(26, 0, 51, 0.9);
+            border-top: 2px solid #ff007f;
+            gap: 10px;
+        }
+        #message-input {
+            flex: 1;
+            background: #0d001a;
+            border: 2px solid #ff007f;
+            border-radius: 25px;
+            padding: 12px 20px;
+            color: white;
+            font-size: 14px;
+            outline: none;
+        }
+        #message-input:focus {
+            border-color: #00ffff;
+            box-shadow: 0 0 10px #00ffff;
+        }
+        #send-btn {
+            background: #ff007f;
+            color: white;
+            border: none;
+            padding: 0 25px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 0 10px #ff007f;
+            transition: all 0.2s ease;
+        }
+        #send-btn:hover {
+            background: #00ffff;
+            color: #1a0033;
+            box-shadow: 0 0 15px #00ffff;
+        }
+    </style>
+    <!-- PubNub Global Chat Cloud Server Library Infrastructure -->
+    <script src="https://pubnub.com"></script>
+</head>
+<body>
+
+    <div id="chat-container">
+        <div id="chat-header">
+            <h2>CYBER CHAT ROOM</h2>
+        </div>
+        
+        <div id="username-box">
+            <span style="color: #9d4edd; align-self: center; font-size: 13px;">NICKNAME:</span>
+            <input type="text" id="username-input" placeholder="Enter temporary name...">
+        </div>
+
+        <div id="messages-area"></div>
+
+        <div id="input-area">
+            <input type="text" id="message-input" placeholder="Type a transmission..." autocomplete="off">
+            <button id="send-btn">SEND</button>
+        </div>
+    </div>
+
+    <script>
+        // Generate fallback random numbers tag names for anonymous entry identification 
+        const randomID = Math.floor(1000 + Math.random() * 9000);
+        let myUsername = "Neon-Dino-" + randomID;
+        
+        const usernameInput = document.getElementById('username-input');
+        usernameInput.placeholder = myUsername;
+
+        // Initialize free-tier message streaming access connection points
+        const pubnub = new PubNub({
+            publishKey: 'pub-c-469bfd64-e4a8-48b2-bda5-74895ec767f7', 
+            subscribeKey: 'sub-c-ee365fc0-f9fb-4e1b-bdf7-e630cc674996',
+            userId: 'user_' + randomID
+        });
+
+        // Join global communication channel stream lane layout
+        const channelName = 'global_neon_cyber_room';
+        pubnub.subscribe({ channels: [channelName] });
+
+        const messagesArea = document.getElementById('messages-area');
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+
+        // Incoming message stream event listener triggers execution routines
+        pubnub.addListener({
+            message: function(event) {
+                displayIncomingMessage(event.message);
+            }
+        });
+
+        // Sending trigger layout workflows
+        function processMessageDelivery() {
+            const textValue = messageInput.value.trim();
+            if (textValue === '') return;
+
+            // Update user moniker nickname variable constraints safely
+            if (usernameInput.value.trim() !== '') {
+                myUsername = usernameInput.value.trim();
+            }
+
+            const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            // Package message layout load structure map fields
+            const packet = {
+                sender: myUsername,
+                text: textValue,
+                time: timestamp,
+                uniqueID: pubnub.getUserId()
+            };
+
+            // Stream package payload to all listeners
+            pubnub.publish({
+                channel: channelName,
+                message: packet
+            });
+
+            messageInput.value = '';
+        }
+
+        // Draw active chat bubble components elements on incoming message event ticks
+        function displayIncomingMessage(data) {
+            const isSelf = data.uniqueID === pubnub.getUserId();
+            
+            const wrapper = document.createElement('div');
+            wrapper.classList.add('msg-wrapper');
+            wrapper.classList.add(isSelf ? 'self' : 'others');
+
+            const meta = document.createElement('div');
+            meta.classList.add('meta-text');
+            meta.innerText = `${data.sender} • ${data.time}`;
+
+            const bubble = document.createElement('div');
+            bubble.classList.add('msg-bubble');
+            bubble.innerText = data.text;
+
+            wrapper.appendChild(meta);
+            wrapper.appendChild(bubble);
+            messagesArea.appendChild(wrapper);
+
+            // Auto scrolling window lock positions anchor mechanism updates bounds
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+        }
+
+        // Keyboard Key Event listener intercept mappings paths setup
+        sendBtn.addEventListener('click', processMessageDelivery);
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') processMessageDelivery();
+        });
+    </script>
+</body>
+</html>
