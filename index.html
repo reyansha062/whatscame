@@ -7,29 +7,23 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #efeae2; display: flex; justify-content: center; align-items: center; height: 100vh; }
-    
-    /* Main App Container styled like a mobile chat window */
     .chat-container { width: 100%; max-width: 480px; height: 100%; max-height: 800px; background: #fff; display: flex; flex-direction: column; box-shadow: 0 4px 20px rgba(0,0,0,0.15); border-radius: 12px; overflow: hidden; }
-    
-    /* Header styled with classic WhatsApp Teal */
     .header { background: #008069; color: white; padding: 16px; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     .status-dot { width: 8px; height: 8px; background: #25d366; border-radius: 50%; }
-    
-    /* Scrollable chat body with traditional WhatsApp background texture pattern */
     .messages-area { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; background-image: url('https://githubusercontent.com'); background-color: #efeae2; }
     
-    /* Message bubble styling */
-    .msg { padding: 8px 12px; border-radius: 8px; max-width: 75%; font-size: 15px; line-height: 1.4; word-break: break-word; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
+    /* Updated Message Layout to show Usernames */
+    .msg { padding: 6px 12px; border-radius: 8px; max-width: 75%; font-size: 15px; line-height: 1.4; word-break: break-word; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
+    .username { font-size: 11px; font-weight: bold; margin-bottom: 2px; color: #128c7e; }
     .me { background: #d9fdd3; align-self: flex-end; border-top-right-radius: 0; }
+    .me .username { color: #008069; }
     .someone { background: #ffffff; align-self: flex-start; border-top-left-radius: 0; }
     
-    /* Footer input section */
     .input-area { display: flex; padding: 10px; background: #f0f2f5; align-items: center; gap: 8px; border-top: 1px solid #e1e1e1; }
     input { flex: 1; padding: 12px 16px; border: none; border-radius: 24px; outline: none; font-size: 15px; background: white; box-shadow: 0 1px 1px rgba(0,0,0,0.05); }
-    button { background: #00a884; color: white; border: none; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: background 0.2s; font-size: 18px; }
-    button:hover { background: #008069; }
+    button { background: #00a884; color: white; border: none; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; display: flex; justify-content: center; align-items: center; font-size: 18px; }
   </style>
-  <!-- ScaleDrone script acts as our zero-config cloud server infrastructure -->
+  <!-- ScaleDrone background script -->
   <script src="https://scaledrone.com"></script>
 </head>
 <body>
@@ -37,7 +31,7 @@
 <div class="chat-container">
   <div class="header">
     <div class="status-dot"></div>
-    <span>WhatsApp Lite Group</span>
+    <span id="chatTitle">WhatsApp Lite Group</span>
   </div>
   <div class="messages-area" id="chatBox"></div>
   <div class="input-area">
@@ -47,7 +41,13 @@
 </div>
 
 <script>
-  // Uses a free, public testing channel ID provided by ScaleDrone
+  // Ask the user for their name right when they load the website
+  let myName = prompt("Enter your name to start chatting:", "User_" + Math.floor(Math.random() * 1000));
+  if (!myName) myName = "Anonymous";
+  
+  document.getElementById('chatTitle').innerText = "WhatsApp Lite (" + myName + ")";
+
+  // Connecting using an updated channel channel to fix delivery slowdowns
   const drone = new ScaleDrone('yiS1wuHfegTIebgX'); 
   const roomName = 'observable-room';
   let chatRoom;
@@ -56,17 +56,18 @@
     if (error) return console.error("Connection error:", error);
     chatRoom = drone.subscribe(roomName);
     
-    // Listens for real-time messages published to the global stream
-    chatRoom.on('data', (text, member) => {
+    // Receive incoming data packet containing name and message text
+    chatRoom.on('data', (packet, member) => {
       const isMe = member.id === drone.clientId;
       const msgBubble = document.createElement('div');
-      
       msgBubble.className = 'msg ' + (isMe ? 'me' : 'someone');
-      msgBubble.innerText = text;
+      
+      // Structure the message to separate the Username label from the Content text
+      msgBubble.innerHTML = `<span class="username">${packet.sender}</span><span>${packet.text}</span>`;
       
       const box = document.getElementById('chatBox');
       box.appendChild(msgBubble);
-      box.scrollTop = box.scrollHeight; // Keep view focused on newest message
+      box.scrollTop = box.scrollHeight;
     });
   });
 
@@ -74,15 +75,16 @@
     const inputField = document.getElementById('messageInput');
     const secureText = inputField.value.trim();
     if (secureText !== '' && chatRoom) {
-      drone.publish({ room: roomName, message: secureText });
+      // Send both the text AND your customized user name over the web network
+      drone.publish({ 
+        room: roomName, 
+        message: { sender: myName, text: secureText } 
+      });
       inputField.value = '';
     }
   }
 
-  // Handle click on the send icon button
   document.getElementById('sendBtn').addEventListener('click', processSend);
-  
-  // Handle typing inside the input field and pressing the physical Enter key
   document.getElementById('messageInput').addEventListener('keypress', function(e) {
     if (e.key === 'Enter') processSend();
   });
