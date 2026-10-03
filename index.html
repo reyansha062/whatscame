@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="google-site-verification" content="XTLG9lxikMYpd6OU7Rgeck51SUnNTI2NEt4I1RmgEq8" />
   <title>WhatsApp Web</title>
 
   <!-- Tailwind CSS -->
@@ -212,7 +213,7 @@
 
         <button 
           type="submit" 
-          id="btn-send-message"
+          id="btn-send-message" 
           class="w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-lg transition transform active:scale-95 flex-shrink-0 cursor-pointer"
           title="Send message"
         >
@@ -287,9 +288,9 @@
             type="text" 
             id="input-setup-username" 
             placeholder="e.g. Reyansh or Sarah" 
-            maxlength="25"
-            required
-            autofocus
+            maxlength="25" 
+            required 
+            autofocus 
             class="w-full bg-[#202c33] border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
         </div>
@@ -300,16 +301,16 @@
             type="text" 
             id="input-setup-room" 
             placeholder="e.g. 101 or chat-room" 
-            value="room-101"
-            maxlength="25"
-            required
+            value="room-101" 
+            maxlength="25" 
+            required 
             class="w-full bg-[#202c33] border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-amber-300"
           >
           <p class="text-[10px] text-slate-400 mt-1">Both you and your friend join this exact Room Code.</p>
         </div>
 
         <button 
-          type="submit"
+          type="submit" 
           id="btn-confirm-setup" 
           class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-xl text-sm transition shadow-lg mt-2 cursor-pointer active:scale-95 flex items-center justify-center gap-1.5"
         >
@@ -581,10 +582,10 @@
           senderId: AppState.myId,
           senderName: AppState.myName
         });
-      }
+      } 
       else if (packet.type === 'PRESENCE_ACK') {
         setPartnerPresence(packet.senderName, true);
-      }
+      } 
       else if (packet.type === 'CLEAR') {
         if (chatStream) chatStream.innerHTML = '';
         showToast('Chat history was cleared');
