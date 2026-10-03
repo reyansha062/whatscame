@@ -2,93 +2,851 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WhatsApp Lite</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #efeae2; display: flex; justify-content: center; align-items: center; height: 100vh; }
-    .chat-container { width: 100%; max-width: 480px; height: 100%; max-height: 800px; background: #fff; display: flex; flex-direction: column; box-shadow: 0 4px 20px rgba(0,0,0,0.15); border-radius: 12px; overflow: hidden; }
-    .header { background: #008069; color: white; padding: 16px; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .status-dot { width: 8px; height: 8px; background: #25d366; border-radius: 50%; }
-    .messages-area { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; background-image: url('https://githubusercontent.com'); background-color: #efeae2; }
-    
-    /* Updated Message Layout to show Usernames */
-    .msg { padding: 6px 12px; border-radius: 8px; max-width: 75%; font-size: 15px; line-height: 1.4; word-break: break-word; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
-    .username { font-size: 11px; font-weight: bold; margin-bottom: 2px; color: #128c7e; }
-    .me { background: #d9fdd3; align-self: flex-end; border-top-right-radius: 0; }
-    .me .username { color: #008069; }
-    .someone { background: #ffffff; align-self: flex-start; border-top-left-radius: 0; }
-    
-    .input-area { display: flex; padding: 10px; background: #f0f2f5; align-items: center; gap: 8px; border-top: 1px solid #e1e1e1; }
-    input { flex: 1; padding: 12px 16px; border: none; border-radius: 24px; outline: none; font-size: 15px; background: white; box-shadow: 0 1px 1px rgba(0,0,0,0.05); }
-    button { background: #00a884; color: white; border: none; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; display: flex; justify-content: center; align-items: center; font-size: 18px; }
-  </style>
-  <!-- ScaleDrone background script -->
-  <script src="https://scaledrone.com"></script>
-</head>
-<body>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>WhatsApp Web</title>
 
-<div class="chat-container">
-  <div class="header">
-    <div class="status-dot"></div>
-    <span id="chatTitle">WhatsApp Lite Group</span>
-  </div>
-  <div class="messages-area" id="chatBox"></div>
-  <div class="input-area">
-    <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off">
-    <button id="sendBtn">➤</button>
-  </div>
-</div>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- QRCode.js Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- Tone.js Sound Synthesizer -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+  <!-- PeerJS for WebRTC Direct Messaging -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-<script>
-  // Ask the user for their name right when they load the website
-  let myName = prompt("Enter your name to start chatting:", "User_" + Math.floor(Math.random() * 1000));
-  if (!myName) myName = "Anonymous";
-  
-  document.getElementById('chatTitle').innerText = "WhatsApp Lite (" + myName + ")";
-
-  // Connecting using an updated channel channel to fix delivery slowdowns
-  const drone = new ScaleDrone('yiS1wuHfegTIebgX'); 
-  const roomName = 'observable-room';
-  let chatRoom;
-
-  drone.on('open', error => {
-    if (error) return console.error("Connection error:", error);
-    chatRoom = drone.subscribe(roomName);
-    
-    // Receive incoming data packet containing name and message text
-    chatRoom.on('data', (packet, member) => {
-      const isMe = member.id === drone.clientId;
-      const msgBubble = document.createElement('div');
-      msgBubble.className = 'msg ' + (isMe ? 'me' : 'someone');
-      
-      // Structure the message to separate the Username label from the Content text
-      msgBubble.innerHTML = `<span class="username">${packet.sender}</span><span>${packet.text}</span>`;
-      
-      const box = document.getElementById('chatBox');
-      box.appendChild(msgBubble);
-      box.scrollTop = box.scrollHeight;
-    });
-  });
-
-  function processSend() {
-    const inputField = document.getElementById('messageInput');
-    const secureText = inputField.value.trim();
-    if (secureText !== '' && chatRoom) {
-      // Send both the text AND your customized user name over the web network
-      drone.publish({ 
-        room: roomName, 
-        message: { sender: myName, text: secureText } 
-      });
-      inputField.value = '';
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
+          },
+          colors: {
+            wa: {
+              teal: '#00a884',
+              tealDark: '#008069',
+              green: '#25d366',
+              outgoing: '#005c4b',
+              incoming: '#202c33',
+              darkBg: '#0c1317',
+              headerBg: '#202c33',
+              panelBg: '#111b21',
+              inputBg: '#2a3942',
+              iconGray: '#aebac1'
+            }
+          }
+        }
+      }
     }
-  }
+  </script>
 
-  document.getElementById('sendBtn').addEventListener('click', processSend);
-  document.getElementById('messageInput').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') processSend();
-  });
-</script>
+  <style>
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(134, 150, 160, 0.25); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(134, 150, 160, 0.4); }
 
+    .wa-bg-pattern {
+      background-color: #0b141a;
+      background-image: 
+        radial-gradient(rgba(255, 255, 255, 0.04) 1.5px, transparent 1.5px),
+        radial-gradient(rgba(255, 255, 255, 0.025) 1px, #0b141a 1px);
+      background-size: 28px 28px;
+      background-position: 0 0, 14px 14px;
+    }
+
+    @keyframes bubbleIn {
+      0% { opacity: 0; transform: translateY(6px) scale(0.98); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .animate-bubble-enter {
+      animation: bubbleIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes dotBounce {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+      40% { transform: translateY(-4px); opacity: 1; }
+    }
+    .bounce-1 { animation: dotBounce 1.2s infinite ease-in-out; }
+    .bounce-2 { animation: dotBounce 1.2s infinite ease-in-out 0.2s; }
+    .bounce-3 { animation: dotBounce 1.2s infinite ease-in-out 0.4s; }
+  </style>
+</head>
+<body class="bg-[#0c1317] text-slate-100 font-sans h-screen w-screen overflow-hidden flex flex-col antialiased select-none">
+
+  <header class="bg-[#202c33] border-b border-slate-800/80 px-3 sm:px-4 py-2.5 flex items-center justify-between z-30 shadow-md">
+    <div class="flex items-center space-x-3 cursor-pointer">
+      <div class="relative">
+        <div id="header-partner-avatar" class="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-700 text-white font-bold text-sm flex items-center justify-center shadow">
+          ?
+        </div>
+        <span id="header-status-dot" class="absolute bottom-0 right-0 w-3 h-3 bg-amber-500 border-2 border-[#202c33] rounded-full transition-colors"></span>
+      </div>
+      <div>
+        <h2 id="header-partner-name" class="text-sm font-semibold text-white tracking-wide flex items-center gap-2">
+          Waiting for partner...
+        </h2>
+        <p id="header-partner-status" class="text-[11px] text-amber-400 font-medium">
+          Scan QR or share room code
+        </p>
+      </div>
+    </div>
+
+    <!-- Header Quick Actions -->
+    <div class="flex items-center space-x-2 text-wa-iconGray">
+      
+      <!-- PROMINENT QR CODE BUTTON -->
+      <button 
+        id="btn-open-qr"
+        type="button"
+        class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-950/50 transition active:scale-95 cursor-pointer border border-emerald-400/30"
+        title="Open QR Code to scan with phone"
+      >
+        <i data-lucide="qr-code" class="w-4 h-4"></i>
+        <span>Scan QR</span>
+      </button>
+
+      <!-- Toggle Sound -->
+      <button id="btn-toggle-sound" type="button" class="p-2 hover:bg-[#111b21] rounded-full hover:text-white transition cursor-pointer" title="Toggle audio chime">
+        <i id="icon-sound" data-lucide="volume-2" class="w-4 h-4 text-emerald-400"></i>
+      </button>
+
+      <!-- Edit Profile / Room -->
+      <button id="btn-edit-me" type="button" class="p-2 hover:bg-[#111b21] rounded-full hover:text-white transition cursor-pointer" title="Change your name / room">
+        <i data-lucide="user-cog" class="w-4 h-4"></i>
+      </button>
+
+      <!-- Clear Chat -->
+      <button id="btn-clear-chat" type="button" class="p-2 hover:bg-rose-950/40 text-slate-400 hover:text-rose-400 rounded-full transition cursor-pointer" title="Clear conversation">
+        <i data-lucide="trash-2" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </header>
+
+  <main class="flex-1 flex flex-col h-full overflow-hidden relative wa-bg-pattern">
+    
+    <!-- Status & Info Ribbon -->
+    <div class="bg-[#182229]/95 border-b border-slate-800/80 px-4 py-1.5 flex items-center justify-between text-[11px] text-slate-300 z-10 shadow-sm">
+      <div class="flex items-center space-x-2">
+        <span id="p2p-status-dot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+        <span>You: <strong id="lbl-current-user-name" class="text-emerald-400 font-bold">You</strong></span>
+      </div>
+      <div class="flex items-center space-x-2">
+        <span class="text-slate-400">Room:</span>
+        <button id="btn-quick-copy-room" type="button" class="bg-black/50 hover:bg-black/80 px-2 py-0.5 rounded text-amber-300 font-mono text-[11px] tracking-wide flex items-center gap-1 cursor-pointer">
+          <span id="lbl-room-id">room-101</span>
+          <i data-lucide="copy" class="w-3 h-3 text-slate-400"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Messages Container -->
+    <div id="messages-container" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3">
+      
+      <!-- Safe E2E Badge with Clickable QR prompt -->
+      <div class="flex justify-center my-1">
+        <button 
+          id="btn-banner-qr" 
+          type="button" 
+          class="bg-[#182229]/95 hover:bg-[#202c33] border border-slate-800 text-amber-300/90 text-[11px] px-3.5 py-1.5 rounded-lg shadow-sm max-w-sm text-center cursor-pointer transition flex items-center gap-2"
+        >
+          <i data-lucide="qr-code" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <span>Click here to show <strong>QR Code</strong> for phone</span>
+        </button>
+      </div>
+
+      <!-- Messages Stream -->
+      <div id="chat-stream" class="space-y-2.5"></div>
+
+      <!-- Typing Indicator -->
+      <div id="typing-indicator" class="hidden items-center space-x-2 py-1 animate-bubble-enter">
+        <div class="bg-[#202c33] border border-slate-700/60 rounded-xl rounded-tl-none px-3.5 py-2 shadow flex items-center space-x-2">
+          <span id="typing-label-name" class="text-xs text-slate-300 font-medium">Partner is typing</span>
+          <div class="flex space-x-1 items-center">
+            <span class="bounce-1 w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            <span class="bounce-2 w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            <span class="bounce-3 w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Emoji Drawer -->
+    <div id="emoji-drawer" class="hidden bg-[#202c33] border-t border-slate-700 px-4 py-2 flex items-center space-x-3 overflow-x-auto">
+      <button type="button" class="emoji-btn text-lg hover:scale-125 transition" data-emoji="😊">😊</button>
+      <button type="button" class="emoji-btn text-lg hover:scale-125 transition" data-emoji="😂">😂</button>
+      <button type="button" class="emoji-btn text-lg hover:scale-125 transition" data-emoji="❤️">❤️</button>
+      <button type="button" class="emoji-btn text-lg hover:scale-125 transition" data-emoji="👍">👍</button>
+      <button type="button" class="emoji-btn text-lg hover:scale-125 transition" data-emoji="🔥">🔥</button>
+      <button type="button" class="emoji-btn text-lg hover:scale-125 transition" data-emoji="🎉">🎉</button>
+      <button type="button" class="emoji-btn text-lg hover:scale-125 transition" data-emoji="👋">👋</button>
+      <button type="button" class="emoji-btn text-lg hover:scale-125 transition" data-emoji="🙌">🙌</button>
+    </div>
+
+    <!-- Message Composer Bar -->
+    <div class="bg-[#202c33] p-2.5 sm:p-3 border-t border-slate-700/70 z-20">
+      <form id="chat-form" class="flex items-center space-x-2">
+        <button 
+          type="button" 
+          id="btn-toggle-emoji" 
+          class="p-2 text-wa-iconGray hover:text-amber-400 hover:bg-[#111b21] rounded-full transition cursor-pointer"
+          title="Insert Emoji"
+        >
+          <i data-lucide="smile" class="w-5 h-5"></i>
+        </button>
+
+        <input 
+          type="text" 
+          id="message-input" 
+          placeholder="Type a message..." 
+          autocomplete="off" 
+          class="flex-1 bg-[#2a3942] text-slate-100 placeholder-slate-400 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 border border-transparent shadow-inner"
+        >
+
+        <button 
+          type="submit" 
+          id="btn-send-message"
+          class="w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-lg transition transform active:scale-95 flex-shrink-0 cursor-pointer"
+          title="Send message"
+        >
+          <i data-lucide="send" class="w-4 h-4 ml-0.5"></i>
+        </button>
+      </form>
+    </div>
+
+  </main>
+
+  <div id="modal-qr" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-[#111b21] border border-slate-700 rounded-3xl max-w-sm w-full p-6 shadow-2xl relative text-center">
+      
+      <!-- Close Button -->
+      <button type="button" id="btn-close-qr" class="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-full hover:bg-slate-800 transition cursor-pointer">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <!-- Modal Header -->
+      <div class="mb-4">
+        <div class="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-2 border border-emerald-500/30">
+          <i data-lucide="qr-code" class="w-6 h-6"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white tracking-wide">Scan with Phone Camera</h3>
+        <p class="text-xs text-slate-400 mt-1">Open your phone camera or QR scanner to join room <span id="qr-room-badge" class="font-mono text-amber-300 font-bold">room-101</span></p>
+      </div>
+
+      <!-- White High-Contrast Pad for Camera Scanning -->
+      <div class="bg-white p-4 rounded-2xl shadow-xl inline-block mx-auto mb-4 border-4 border-slate-200">
+        <div id="qr-canvas-target" class="flex items-center justify-center w-[200px] h-[200px]"></div>
+      </div>
+
+      <!-- Quick Room Link & Actions -->
+      <div class="space-y-2">
+        <div class="bg-[#202c33] p-2 rounded-xl border border-slate-700 flex items-center justify-between gap-2">
+          <span id="qr-url-text" class="text-[11px] text-emerald-400 font-mono truncate select-all px-1">
+            https://reyansha062.github.io/whatscame/
+          </span>
+          <button 
+            type="button" 
+            id="btn-copy-qr-link" 
+            class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition active:scale-95 flex-shrink-0"
+          >
+            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+            <span>Copy</span>
+          </button>
+        </div>
+
+        <button 
+          type="button" 
+          id="btn-done-qr" 
+          class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer"
+        >
+          Done / Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-onboarding" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-[#111b21] border border-slate-700 rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+      <div class="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-3 border border-emerald-500/30">
+        <i data-lucide="message-circle" class="w-6 h-6"></i>
+      </div>
+      <h3 class="text-lg font-bold text-center text-white mb-1">WhatsApp Live for GitHub</h3>
+      <p class="text-xs text-center text-slate-400 mb-5">Peer-to-peer live chat without any backend server.</p>
+
+      <form id="form-onboarding" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Your Name</label>
+          <input 
+            type="text" 
+            id="input-setup-username" 
+            placeholder="e.g. Reyansh or Sarah" 
+            maxlength="25"
+            required
+            autofocus
+            class="w-full bg-[#202c33] border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          >
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Room Code</label>
+          <input 
+            type="text" 
+            id="input-setup-room" 
+            placeholder="e.g. 101 or chat-room" 
+            value="room-101"
+            maxlength="25"
+            required
+            class="w-full bg-[#202c33] border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-amber-300"
+          >
+          <p class="text-[10px] text-slate-400 mt-1">Both you and your friend join this exact Room Code.</p>
+        </div>
+
+        <button 
+          type="submit"
+          id="btn-confirm-setup" 
+          class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-xl text-sm transition shadow-lg mt-2 cursor-pointer active:scale-95 flex items-center justify-center gap-1.5"
+        >
+          <span>Enter Chat Room</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="fixed bottom-16 right-4 bg-[#202c33] border border-slate-700 text-white text-xs px-3.5 py-2.5 rounded-xl shadow-2xl flex items-center space-x-2 transition-all transform translate-y-16 opacity-0 pointer-events-none z-50">
+    <i data-lucide="check" class="w-4 h-4 text-emerald-400"></i>
+    <span id="toast-text">Notice</span>
+  </div>
+
+  <script>
+    const AppState = {
+      myId: 'usr_' + Math.random().toString(36).substring(2, 8),
+      myName: '',
+      room: 'room-101',
+      partnerName: null,
+      soundEnabled: true,
+      peer: null,
+      activeConnections: [],
+      broadcastChannel: null
+    };
+
+    const SENDER_COLORS = [
+      'text-sky-400',
+      'text-emerald-400',
+      'text-amber-400',
+      'text-pink-400',
+      'text-violet-400',
+      'text-teal-400'
+    ];
+
+    function getSenderColor(name) {
+      if (!name) return 'text-sky-400';
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+      return SENDER_COLORS[Math.abs(hash) % SENDER_COLORS.length];
+    }
+
+    let audioSynth = null;
+    function playChime(type) {
+      if (!AppState.soundEnabled) return;
+      try {
+        if (!audioSynth && window.Tone) {
+          audioSynth = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: 'sine' },
+            envelope: { attack: 0.005, decay: 0.1, sustain: 0.01, release: 0.1 }
+          }).toDestination();
+          audioSynth.volume.value = -12;
+        }
+        if (window.Tone && Tone.context && Tone.context.state !== 'running') {
+          Tone.start();
+        }
+        if (audioSynth) {
+          if (type === 'sent') audioSynth.triggerAttackRelease(['C5', 'G5'], '32n');
+          else if (type === 'received') audioSynth.triggerAttackRelease(['E5', 'B5'], '16n');
+        }
+      } catch (err) {}
+    }
+
+    const chatStream = document.getElementById('chat-stream');
+    const messagesContainer = document.getElementById('messages-container');
+    const messageInput = document.getElementById('message-input');
+    const chatForm = document.getElementById('chat-form');
+    const typingIndicator = document.getElementById('typing-indicator');
+    const typingLabelName = document.getElementById('typing-label-name');
+    const headerPartnerName = document.getElementById('header-partner-name');
+    const headerPartnerStatus = document.getElementById('header-partner-status');
+    const headerPartnerAvatar = document.getElementById('header-partner-avatar');
+    const headerStatusDot = document.getElementById('header-status-dot');
+    const p2pStatusDot = document.getElementById('p2p-status-dot');
+    const lblCurrentUserName = document.getElementById('lbl-current-user-name');
+    const lblRoomId = document.getElementById('lbl-room-id');
+    const toast = document.getElementById('toast');
+    const toastText = document.getElementById('toast-text');
+
+    function showToast(text) {
+      if (!toast || !toastText) return;
+      toastText.textContent = text;
+      toast.classList.remove('translate-y-16', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+      setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-16', 'opacity-0');
+      }, 2400);
+    }
+
+    function scrollToBottom() {
+      if (messagesContainer) {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+    }
+
+    function escapeHtml(str) {
+      return (str || '').replace(/[&<>'"]/g, t => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[t] || t));
+    }
+
+    function appendMessageBubble(msg) {
+      const isMe = msg.senderId === AppState.myId;
+      const bubbleWrap = document.createElement('div');
+      bubbleWrap.className = `flex flex-col animate-bubble-enter ${isMe ? 'items-end' : 'items-start'}`;
+
+      if (isMe) {
+        bubbleWrap.innerHTML = `
+          <div class="max-w-[85%] sm:max-w-[70%] bg-[#005c4b] text-slate-100 rounded-xl rounded-tr-none px-3.5 py-1.5 shadow-sm border border-[#02735e]/30 relative">
+            <p class="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-words">${escapeHtml(msg.text)}</p>
+            <div class="flex items-center justify-end space-x-1 mt-0.5 text-[9px] text-emerald-200/80 select-none">
+              <span>${msg.time || ''}</span>
+              <i data-lucide="check-check" class="w-3.5 h-3.5 text-sky-400"></i>
+            </div>
+          </div>
+        `;
+      } else {
+        const nameColor = getSenderColor(msg.senderName);
+        setPartnerPresence(msg.senderName, true);
+
+        bubbleWrap.innerHTML = `
+          <div class="max-w-[85%] sm:max-w-[70%] bg-[#202c33] text-slate-100 rounded-xl rounded-tl-none px-3.5 py-1.5 shadow-sm border border-slate-700/60 relative">
+            <div class="mb-0.5 select-none">
+              <span class="text-[11px] font-bold ${nameColor} tracking-wide">
+                ${escapeHtml(msg.senderName)}
+              </span>
+            </div>
+            <p class="text-xs sm:text-sm leading-relaxed text-slate-200 whitespace-pre-wrap break-words">${escapeHtml(msg.text)}</p>
+            <div class="flex items-center justify-end space-x-1 mt-0.5 text-[9px] text-slate-400 select-none">
+              <span>${msg.time || ''}</span>
+            </div>
+          </div>
+        `;
+      }
+
+      chatStream.appendChild(bubbleWrap);
+      if (window.lucide) {
+        lucide.createIcons({ root: bubbleWrap });
+      }
+      scrollToBottom();
+    }
+
+    function setPartnerPresence(name, isOnline) {
+      AppState.partnerName = name;
+      if (headerPartnerName) headerPartnerName.textContent = name;
+      if (headerPartnerAvatar) headerPartnerAvatar.textContent = (name || '?').charAt(0).toUpperCase();
+      if (headerPartnerStatus && headerStatusDot && p2pStatusDot) {
+        if (isOnline) {
+          headerPartnerStatus.textContent = 'online';
+          headerPartnerStatus.className = 'text-[11px] text-emerald-400 font-medium';
+          headerStatusDot.className = 'absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[#202c33] rounded-full';
+          p2pStatusDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+        } else {
+          headerPartnerStatus.textContent = 'offline';
+          headerPartnerStatus.className = 'text-[11px] text-slate-400 font-medium';
+          headerStatusDot.className = 'absolute bottom-0 right-0 w-3 h-3 bg-slate-500 border-2 border-[#202c33] rounded-full';
+          p2pStatusDot.className = 'w-2 h-2 rounded-full bg-amber-400';
+        }
+      }
+    }
+
+    function initNetworking() {
+      try {
+        if (AppState.broadcastChannel) AppState.broadcastChannel.close();
+        AppState.broadcastChannel = new BroadcastChannel(`wa_room_${AppState.room}`);
+        AppState.broadcastChannel.onmessage = (event) => handleIncomingPacket(event.data);
+      } catch (e) {}
+
+      if (typeof Peer !== 'undefined') {
+        try {
+          if (AppState.peer) {
+            AppState.peer.destroy();
+          }
+
+          const safeRoom = AppState.room.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
+          const hostPeerId = `wa-p2p-${safeRoom}-host`;
+          const guestPeerId = `wa-p2p-${safeRoom}-guest-${AppState.myId}`;
+
+          AppState.peer = new Peer(hostPeerId, { debug: 0 });
+
+          AppState.peer.on('open', (id) => {
+            console.log('Room Host active:', id);
+          });
+
+          AppState.peer.on('error', (err) => {
+            if (err.type === 'unavailable-id') {
+              AppState.peer = new Peer(guestPeerId, { debug: 0 });
+              AppState.peer.on('open', () => {
+                const conn = AppState.peer.connect(hostPeerId, { reliable: true });
+                setupPeerConnection(conn);
+              });
+            }
+          });
+
+          AppState.peer.on('connection', (conn) => {
+            setupPeerConnection(conn);
+          });
+        } catch (e) {}
+      }
+    }
+
+    function setupPeerConnection(conn) {
+      conn.on('open', () => {
+        AppState.activeConnections.push(conn);
+        conn.send({
+          type: 'PRESENCE',
+          senderId: AppState.myId,
+          senderName: AppState.myName
+        });
+      });
+
+      conn.on('data', (data) => {
+        handleIncomingPacket(data);
+      });
+
+      conn.on('close', () => {
+        AppState.activeConnections = AppState.activeConnections.filter(c => c !== conn);
+      });
+    }
+
+    function broadcastPacket(data) {
+      try {
+        if (AppState.broadcastChannel) {
+          AppState.broadcastChannel.postMessage(data);
+        }
+      } catch (err) {}
+
+      AppState.activeConnections.forEach(conn => {
+        try {
+          if (conn && conn.open) {
+            conn.send(data);
+          }
+        } catch (e) {}
+      });
+    }
+
+    let typingTimeout = null;
+    function handleIncomingPacket(packet) {
+      if (!packet || packet.senderId === AppState.myId) return;
+
+      if (packet.type === 'MESSAGE') {
+        if (typingIndicator) {
+          typingIndicator.classList.add('hidden');
+          typingIndicator.classList.remove('flex');
+        }
+        playChime('received');
+        appendMessageBubble(packet);
+      } 
+      else if (packet.type === 'TYPING') {
+        if (typingLabelName && typingIndicator) {
+          typingLabelName.textContent = `${packet.senderName} is typing`;
+          typingIndicator.classList.remove('hidden');
+          typingIndicator.classList.add('flex');
+          scrollToBottom();
+
+          clearTimeout(typingTimeout);
+          typingTimeout = setTimeout(() => {
+            typingIndicator.classList.add('hidden');
+            typingIndicator.classList.remove('flex');
+          }, 2200);
+        }
+      } 
+      else if (packet.type === 'PRESENCE') {
+        setPartnerPresence(packet.senderName, true);
+        showToast(`${packet.senderName} joined room!`);
+        broadcastPacket({
+          type: 'PRESENCE_ACK',
+          senderId: AppState.myId,
+          senderName: AppState.myName
+        });
+      }
+      else if (packet.type === 'PRESENCE_ACK') {
+        setPartnerPresence(packet.senderName, true);
+      }
+      else if (packet.type === 'CLEAR') {
+        if (chatStream) chatStream.innerHTML = '';
+        showToast('Chat history was cleared');
+      }
+    }
+
+    if (chatForm) {
+      chatForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const text = (messageInput ? messageInput.value : '').trim();
+        if (!text) return;
+
+        const timeNow = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        const msgPacket = {
+          type: 'MESSAGE',
+          id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+          senderId: AppState.myId,
+          senderName: AppState.myName,
+          text: text,
+          time: timeNow
+        };
+
+        if (messageInput) messageInput.value = '';
+        playChime('sent');
+        appendMessageBubble(msgPacket);
+        broadcastPacket(msgPacket);
+      });
+    }
+
+    let lastTypingPing = 0;
+    if (messageInput) {
+      messageInput.addEventListener('input', () => {
+        const now = Date.now();
+        if (now - lastTypingPing > 1500) {
+          lastTypingPing = now;
+          broadcastPacket({
+            type: 'TYPING',
+            senderId: AppState.myId,
+            senderName: AppState.myName
+          });
+        }
+      });
+    }
+
+    const modalQr = document.getElementById('modal-qr');
+    const btnOpenQr = document.getElementById('btn-open-qr');
+    const btnBannerQr = document.getElementById('btn-banner-qr');
+    const btnCloseQr = document.getElementById('btn-close-qr');
+    const btnDoneQr = document.getElementById('btn-done-qr');
+    const qrCanvasTarget = document.getElementById('qr-canvas-target');
+    const qrRoomBadge = document.getElementById('qr-room-badge');
+    const qrUrlText = document.getElementById('qr-url-text');
+    const btnCopyQrLink = document.getElementById('btn-copy-qr-link');
+    const btnQuickCopyRoom = document.getElementById('btn-quick-copy-room');
+
+    function getTargetUrl() {
+      let base = window.location.origin + window.location.pathname;
+      if (!base.includes('reyansha062.github.io')) {
+        base = 'https://reyansha062.github.io/whatscame/';
+      }
+      return `${base}?room=${encodeURIComponent(AppState.room)}`;
+    }
+
+    function renderScannableQR() {
+      const inviteUrl = getTargetUrl();
+      if (qrUrlText) qrUrlText.textContent = inviteUrl;
+      if (qrRoomBadge) qrRoomBadge.textContent = AppState.room;
+
+      if (!qrCanvasTarget) return;
+      qrCanvasTarget.innerHTML = '';
+
+      try {
+        if (typeof QRCode !== 'undefined') {
+          new QRCode(qrCanvasTarget, {
+            text: inviteUrl,
+            width: 200,
+            height: 200,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.M
+          });
+        } else {
+          fallbackQR(inviteUrl);
+        }
+      } catch (e) {
+        fallbackQR(inviteUrl);
+      }
+    }
+
+    function fallbackQR(url) {
+      if (!qrCanvasTarget) return;
+      qrCanvasTarget.innerHTML = `
+        <img 
+          src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}&margin=2" 
+          alt="QR Code" 
+          class="w-[200px] h-[200px] object-contain rounded"
+        />
+      `;
+    }
+
+    function openQrModal() {
+      renderScannableQR();
+      if (modalQr) modalQr.classList.remove('hidden');
+    }
+
+    function closeQrModal() {
+      if (modalQr) modalQr.classList.add('hidden');
+    }
+
+    if (btnOpenQr) btnOpenQr.addEventListener('click', openQrModal);
+    if (btnBannerQr) btnBannerQr.addEventListener('click', openQrModal);
+    if (btnCloseQr) btnCloseQr.addEventListener('click', closeQrModal);
+    if (btnDoneQr) btnDoneQr.addEventListener('click', closeQrModal);
+
+    function copyText(str, msg) {
+      try {
+        const el = document.createElement('textarea');
+        el.value = str;
+        el.style.position = 'fixed';
+        el.style.opacity = '0';
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+        showToast(msg);
+      } catch (e) {
+        showToast('Copied: ' + str);
+      }
+    }
+
+    if (btnCopyQrLink) {
+      btnCopyQrLink.addEventListener('click', () => {
+        copyText(getTargetUrl(), 'Link copied! Send it or open in another tab.');
+      });
+    }
+
+    if (btnQuickCopyRoom) {
+      btnQuickCopyRoom.addEventListener('click', () => {
+        copyText(AppState.room, `Room code "${AppState.room}" copied!`);
+      });
+    }
+
+    const btnToggleEmoji = document.getElementById('btn-toggle-emoji');
+    const emojiDrawer = document.getElementById('emoji-drawer');
+    if (btnToggleEmoji && emojiDrawer) {
+      btnToggleEmoji.addEventListener('click', () => emojiDrawer.classList.toggle('hidden'));
+    }
+
+    document.querySelectorAll('.emoji-btn').forEach(b => {
+      b.addEventListener('click', () => {
+        if (messageInput) {
+          messageInput.value += b.getAttribute('data-emoji') || '';
+          messageInput.focus();
+        }
+      });
+    });
+
+    const btnClearChat = document.getElementById('btn-clear-chat');
+    if (btnClearChat) {
+      btnClearChat.addEventListener('click', () => {
+        if (chatStream) chatStream.innerHTML = '';
+        broadcastPacket({ type: 'CLEAR', senderId: AppState.myId });
+        showToast('Chat cleared');
+      });
+    }
+
+    const btnToggleSound = document.getElementById('btn-toggle-sound');
+    const iconSound = document.getElementById('icon-sound');
+    if (btnToggleSound && iconSound) {
+      btnToggleSound.addEventListener('click', () => {
+        AppState.soundEnabled = !AppState.soundEnabled;
+        if (AppState.soundEnabled) {
+          iconSound.setAttribute('data-lucide', 'volume-2');
+          iconSound.className = 'w-4 h-4 text-emerald-400';
+          showToast('Sound on');
+        } else {
+          iconSound.setAttribute('data-lucide', 'volume-x');
+          iconSound.className = 'w-4 h-4 text-rose-400';
+          showToast('Sound muted');
+        }
+        if (window.lucide) lucide.createIcons();
+      });
+    }
+
+    // Onboarding
+    const modalOnboarding = document.getElementById('modal-onboarding');
+    const formOnboarding = document.getElementById('form-onboarding');
+    const inputSetupUser = document.getElementById('input-setup-username');
+    const inputSetupRoom = document.getElementById('input-setup-room');
+    const btnEditMe = document.getElementById('btn-edit-me');
+
+    function applyUserSetup(name, room) {
+      AppState.myName = (name || 'User').trim();
+      AppState.room = (room || 'room-101').toLowerCase().replace(/[^a-z0-9_-]/g, '') || 'room-101';
+      
+      try {
+        localStorage.setItem('wa_username', AppState.myName);
+        localStorage.setItem('wa_room', AppState.room);
+      } catch (e) {}
+
+      if (lblCurrentUserName) lblCurrentUserName.textContent = AppState.myName;
+      if (lblRoomId) lblRoomId.textContent = `#${AppState.room}`;
+      if (modalOnboarding) modalOnboarding.classList.add('hidden');
+
+      initNetworking();
+      showToast(`Welcome ${AppState.myName}!`);
+
+      if (messageInput) {
+        setTimeout(() => messageInput.focus(), 150);
+      }
+    }
+
+    if (formOnboarding) {
+      formOnboarding.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const n = (inputSetupUser ? inputSetupUser.value : '').trim();
+        const r = (inputSetupRoom ? inputSetupRoom.value : '').trim() || 'room-101';
+        if (!n) return;
+        applyUserSetup(n, r);
+      });
+    }
+
+    if (btnEditMe && modalOnboarding) {
+      btnEditMe.addEventListener('click', () => {
+        if (inputSetupUser) inputSetupUser.value = AppState.myName;
+        if (inputSetupRoom) inputSetupRoom.value = AppState.room;
+        modalOnboarding.classList.remove('hidden');
+        if (inputSetupUser) inputSetupUser.focus();
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      if (window.lucide) lucide.createIcons();
+
+      let urlRoom = null;
+      try {
+        const p = new URLSearchParams(window.location.search);
+        urlRoom = p.get('room');
+      } catch (e) {}
+
+      let savedName = null;
+      let savedRoom = urlRoom;
+
+      try {
+        savedName = localStorage.getItem('wa_username');
+        if (!savedRoom) savedRoom = localStorage.getItem('wa_room') || 'room-101';
+      } catch (e) {}
+
+      if (urlRoom && inputSetupRoom) {
+        inputSetupRoom.value = urlRoom;
+      }
+
+      if (savedName) {
+        if (inputSetupUser) inputSetupUser.value = savedName;
+        if (inputSetupRoom) inputSetupRoom.value = savedRoom || 'room-101';
+        applyUserSetup(savedName, savedRoom || 'room-101');
+      } else {
+        if (modalOnboarding) modalOnboarding.classList.remove('hidden');
+        if (inputSetupUser) inputSetupUser.focus();
+      }
+    });
+  </script>
 </body>
 </html>
